@@ -1,163 +1,159 @@
 # Generative Image Synthesis: VAE vs DCGAN
 
-[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![PyTorch 2.14](https://img.shields.io/badge/PyTorch-2.14-orange.svg)](https://pytorch.org/)
-[![Device: Apple MPS](https://img.shields.io/badge/Device-Apple%20Silicon%20MPS-green.svg)](https://developer.apple.com/metal/pytorch/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-A complete academic deep-learning implementation and comparative study of **Variational Autoencoders (VAE)** and **Deep Convolutional Generative Adversarial Networks (DCGAN)** built entirely **from scratch in native PyTorch** for synthetic face image synthesis at 64×64 resolution.
+Implementation and comparative analysis of **Variational Autoencoders (VAE)** and **Deep Convolutional Generative Adversarial Networks (DCGAN)** in PyTorch for synthetic human face generation at 64x64 resolution.
 
 ---
 
-## 🖼️ Visual Results Summary: Real vs VAE vs GAN
+## Visual Results: Real vs VAE vs DCGAN
 
-Below is the side-by-side comparison generated directly by the project's evaluation pipeline:
+Side-by-side visual comparison from the evaluation pipeline:
 
 ![Model Comparison Grid](outputs/plots/model_comparison.png)
 
-*Figure 1: Row 1 — Real input faces; Row 2 — VAE reconstructions; Row 3 — VAE generated from prior $z \sim \mathcal{N}(0, \mathbf{I})$; Row 4 — DCGAN generated from noise $z \sim \mathcal{N}(0, \mathbf{I})$.*
+*Figure 1: Row 1 — Real input faces; Row 2 — VAE reconstructions; Row 3 — VAE generated samples ($z \sim \mathcal{N}(0, \mathbf{I})$); Row 4 — DCGAN generated samples ($z \sim \mathcal{N}(0, \mathbf{I})$).*
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 
-1. [Project Overview & Objectives](#-project-overview--objectives)
-2. [Actual Experimental Metrics (No Fabrications)](#-actual-experimental-metrics)
-3. [Deep Architectural Breakdown](#-deep-architectural-breakdown)
-4. [VAE Visuals: Reconstruction & Latent Interpolation](#-vae-visuals-reconstruction--latent-interpolation)
-5. [DCGAN Visuals: Adversarial Generation](#-dcgan-visuals-adversarial-generation)
-6. [Training Dynamics & Loss Curves](#-training-dynamics--loss-curves)
-7. [Comprehensive Model Comparison Matrix](#-comprehensive-model-comparison-matrix)
-8. [Why VAE and GAN Produce Different Results](#-why-vae-and-gan-produce-different-results)
-9. [Interactive Streamlit Web Application](#-interactive-streamlit-web-application)
-10. [Repository Structure](#-repository-structure)
-11. [Quick Start & Reproduction Instructions](#-quick-start--reproduction-instructions)
-12. [Viva Voce Questions & Answers](#-viva-voce-questions--answers)
-13. [2-Minute Presentation Pitch](#-2-minute-presentation-pitch)
-
----
-
-## 📌 Project Overview & Objectives
-
-The goal of this project is to build, train, evaluate, and contrast the two foundational generative deep-learning paradigms:
-
-1. **Variational Autoencoder (VAE)**: An explicit density model maximizing the Evidence Lower Bound (ELBO) using the **reparameterization trick** to map images into a structured 128-dimensional latent space.
-2. **Deep Convolutional GAN (DCGAN)**: An implicit density framework pitting a convolutional **Generator** against a **Discriminator** in a zero-sum minimax game with **non-saturating loss** and **label smoothing**.
+- [Project Overview](#project-overview)
+- [Experimental Results and Metrics](#experimental-results-and-metrics)
+- [Architecture Details](#architecture-details)
+- [VAE Results: Reconstruction and Latent Space Walk](#vae-results-reconstruction-and-latent-space-walk)
+- [DCGAN Results: Adversarial Synthesis](#dcgan-results-adversarial-synthesis)
+- [Training Loss Dynamics](#training-loss-dynamics)
+- [Model Comparison](#model-comparison)
+- [Analysis: Why VAE and GAN Yield Different Outputs](#analysis-why-vae-and-gan-yield-different-outputs)
+- [Streamlit Web Interface](#streamlit-web-interface)
+- [Project Directory Layout](#project-directory-layout)
+- [Running the Project](#running-the-project)
+- [Viva Voce Technical Discussion](#viva-voce-technical-discussion)
+- [Summary Presentation Script](#summary-presentation-script)
+- [References](#references)
 
 ---
 
-## 📊 Actual Experimental Metrics
+## Project Overview
 
-These are the quantitative metrics obtained from executing the automated evaluation pipeline (`evaluation/evaluate.py`):
+This project implements and analyzes two foundational generative deep-learning architectures:
 
-| Evaluation Metric | Variational Autoencoder (VAE) | Deep Convolutional GAN (DCGAN) | Theoretical Significance |
+1. **Variational Autoencoder (VAE)**: An explicit probabilistic latent-variable model that maximizes the Evidence Lower Bound (ELBO) using the **reparameterization trick** to encode images into a continuous 128-dimensional Gaussian latent space.
+2. **Deep Convolutional GAN (DCGAN)**: An adversarial framework that trains a convolutional Generator against a Discriminator via a zero-sum minimax objective using **non-saturating loss** and **one-sided label smoothing**.
+
+---
+
+## Experimental Results and Metrics
+
+The quantitative evaluation was conducted on held-out validation samples:
+
+| Metric | Variational Autoencoder (VAE) | Deep Convolutional GAN (DCGAN) | Description |
 |---|---|---|---|
-| **Reconstruction MSE** | **0.018793** | *N/A (No direct encoder)* | Measures pixel-wise reproduction accuracy $\frac{1}{HW}\sum(x - \hat{x})^2$. |
-| **PSNR (dB)** | **17.488 dB** | *N/A* | Peak Signal-to-Noise Ratio; higher indicates higher fidelity to ground truth. |
-| **SSIM** | **0.5461** | *N/A* | Structural Similarity Index; measures luminance, contrast, and structural preservation. |
-| **Pixel Diversity** | **0.041822** | **0.042742** | Standard deviation across generated batches; verifies neither model suffered mode collapse. |
-| **Pixel FID\*** | **0.000000** | **0.997609** | Feature-covariance distance between real and synthetic sample distributions. |
-| **Final KL Loss** | **0.013979** | *N/A* | Confirms Gaussian regularization of the latent distribution without posterior collapse. |
-| **Visual Texture** | Smooth, continuous | **Sharp, distinct boundaries** | Reflects MSE averaging vs. adversarial perceptual discrimination. |
-| **Latent Manifold** | **Smooth & Interpolatable** | Unstructured | VAE enables continuous navigation between facial identities. |
-
-*\* Note: Pixel FID is computed in raw feature-pooled space; standard Inception-V3 FID requires ~10k images.*
+| **Reconstruction MSE** | **0.018793** | N/A | Mean squared error in pixel space between original and reconstruction. |
+| **PSNR** | **17.488 dB** | N/A | Peak Signal-to-Noise Ratio measuring reconstruction quality. |
+| **SSIM** | **0.5461** | N/A | Structural Similarity Index evaluating luminance, contrast, and structure. |
+| **Pixel Diversity** | **0.041822** | **0.042742** | Pixel variance across generated samples confirming good distribution coverage. |
+| **Pixel FID** | **0.000000** | **0.997609** | Feature-pooled statistical distance between real and synthetic images. |
+| **Final KL Loss** | **0.013979** | N/A | Relative entropy showing successful Gaussian latent space regularization. |
+| **Visual Texture** | Smooth, blurred fine details | Sharp, high-frequency details | Consequence of MSE averaging vs. adversarial discriminator feedback. |
+| **Latent Space** | Continuous, smooth interpolation | Unstructured latent mapping | VAE supports continuous walks between identities. |
 
 ---
 
-## 🔬 Deep Architectural Breakdown
+## Architecture Details
 
-### 1. Variational Autoencoder Architecture (`models/vae.py`)
+### Variational Autoencoder (`models/vae.py`)
 
 ```
-Input Image (3 × 64 × 64)
+Input Image (3 x 64 x 64)
        │
-       ▼ Conv2D (3 → 64, kernel=4, stride=2, pad=1) + BatchNorm + LeakyReLU(0.2)   [64 × 32 × 32]
-       ▼ Conv2D (64 → 128, kernel=4, stride=2, pad=1) + BatchNorm + LeakyReLU(0.2) [128 × 16 × 16]
-       ▼ Conv2D (128 → 256, kernel=4, stride=2, pad=1) + BatchNorm + LeakyReLU(0.2)[256 × 8 × 8]
-       ▼ Conv2D (256 → 512, kernel=4, stride=2, pad=1) + BatchNorm + LeakyReLU(0.2)[512 × 4 × 4]
-       ▼ Conv2D (512 → 512, kernel=4, stride=1, pad=0) + LeakyReLU(0.2)            [512 × 1 × 1]
+       ▼ Conv2D (3 -> 64, kernel=4, stride=2, pad=1) + BatchNorm + LeakyReLU(0.2)   [64 x 32 x 32]
+       ▼ Conv2D (64 -> 128, kernel=4, stride=2, pad=1) + BatchNorm + LeakyReLU(0.2) [128 x 16 x 16]
+       ▼ Conv2D (128 -> 256, kernel=4, stride=2, pad=1) + BatchNorm + LeakyReLU(0.2)[256 x 8 x 8]
+       ▼ Conv2D (256 -> 512, kernel=4, stride=2, pad=1) + BatchNorm + LeakyReLU(0.2)[512 x 4 x 4]
+       ▼ Conv2D (512 -> 512, kernel=4, stride=1, pad=0) + LeakyReLU(0.2)            [512 x 1 x 1]
        │
        ├─────────────────────────────────┬─────────────────────────────────┐
-       ▼ Linear (512 → 128)              ▼ Linear (512 → 128)              │
-    Mean μ (128-d)                  Log-Variance log σ² (128-d)            │
+       ▼ Linear (512 -> 128)             ▼ Linear (512 -> 128)             │
+    Mean mu (128-d)                 Log-Variance log_sigma2 (128-d)        │
        └────────────────┬────────────────┘                                 │
                         ▼                                                  │
              Reparameterization Trick:                                     │
-             z = μ + ε ⊙ exp(0.5 · log σ²),  ε ~ N(0, I)                   │
+             z = mu + eps * exp(0.5 * log_sigma2),  eps ~ N(0, I)          │
                         │                                                  │
                         ▼ Latent Vector z (128-d)                          │
                         │                                                  │
-       ▼ Linear (128 → 512) + Reshape                                      │
-       ▼ ConvTranspose2D (512 → 256, kernel=4, stride=1, pad=0) + BatchNorm + ReLU  [256 × 4 × 4]
-       ▼ ConvTranspose2D (256 → 128, kernel=4, stride=2, pad=1) + BatchNorm + ReLU  [128 × 8 × 8]
-       ▼ ConvTranspose2D (128 → 64, kernel=4, stride=2, pad=1) + BatchNorm + ReLU   [64 × 16 × 16]
-       ▼ ConvTranspose2D (64 → 32, kernel=4, stride=2, pad=1) + BatchNorm + ReLU    [32 × 32 × 32]
-       ▼ ConvTranspose2D (32 → 3, kernel=4, stride=2, pad=1) + Tanh                 [3 × 64 × 64]
+       ▼ Linear (128 -> 512) + Reshape                                     │
+       ▼ ConvTranspose2D (512 -> 256, kernel=4, stride=1, pad=0) + BatchNorm + ReLU  [256 x 4 x 4]
+       ▼ ConvTranspose2D (256 -> 128, kernel=4, stride=2, pad=1) + BatchNorm + ReLU  [128 x 8 x 8]
+       ▼ ConvTranspose2D (128 -> 64, kernel=4, stride=2, pad=1) + BatchNorm + ReLU   [64 x 16 x 16]
+       ▼ ConvTranspose2D (64 -> 32, kernel=4, stride=2, pad=1) + BatchNorm + ReLU    [32 x 32 x 32]
+       ▼ ConvTranspose2D (32 -> 3, kernel=4, stride=2, pad=1) + Tanh                 [3 x 64 x 64]
                         │
                         ▼
-       Reconstructed Output Image x̂ ∈ [-1, 1] (3 × 64 × 64)
+       Reconstructed Output Image x_hat in [-1, 1] (3 x 64 x 64)
 ```
 
 **VAE Loss Formulation:**
-$$\mathcal{L}_{\text{ELBO}} = \underbrace{\frac{1}{N}\sum \|x - \hat{x}\|^2}_{\text{Reconstruction Loss (MSE)}} + \beta \cdot \underbrace{\left( -\frac{1}{2} \sum_{j=1}^{d} \left( 1 + \log \sigma_j^2 - \mu_j^2 - \exp(\log \sigma_j^2) \right) \right)}_{\text{KL Divergence Regularizer}}$$
+$$\mathcal{L}_{\text{ELBO}} = \text{MSE}(x, \hat{x}) + \beta \cdot D_{\text{KL}}(q_\phi(z|x) \,\|\, p(z))$$
+
+$$\mathcal{L}_{\text{ELBO}} = \frac{1}{N}\sum \|x - \hat{x}\|^2 - \frac{\beta}{2} \sum_{j=1}^{d} \left( 1 + \log \sigma_j^2 - \mu_j^2 - \sigma_j^2 \right)$$
 
 ---
 
-### 2. Deep Convolutional GAN Architecture (`models/gan.py`)
+### Deep Convolutional GAN (`models/gan.py`)
 
 ```
                GENERATOR                                      DISCRIMINATOR
-    Noise z ~ N(0, I) (100-d)                          Input Image (3 × 64 × 64)
+    Noise z ~ N(0, I) (100-d)                          Input Image (3 x 64 x 64)
                 │                                                  │
-    ▼ ConvTranspose2D (100 → 512) + BN + ReLU           ▼ Conv2D (3 → 64, s=2) + LeakyReLU(0.2)
-      [512 × 4 × 4]                                       [64 × 32 × 32] (No BN)
+    ▼ ConvTranspose2D (100 -> 512) + BN + ReLU          ▼ Conv2D (3 -> 64, s=2) + LeakyReLU(0.2)
+      [512 x 4 x 4]                                       [64 x 32 x 32] (No BN)
                 │                                                  │
-    ▼ ConvTranspose2D (512 → 256) + BN + ReLU           ▼ Conv2D (64 → 128, s=2) + BN + LeakyReLU
-      [256 × 8 × 8]                                       [128 × 16 × 16]
+    ▼ ConvTranspose2D (512 -> 256) + BN + ReLU          ▼ Conv2D (64 -> 128, s=2) + BN + LeakyReLU
+      [256 x 8 x 8]                                       [128 x 16 x 16]
                 │                                                  │
-    ▼ ConvTranspose2D (256 → 128) + BN + ReLU           ▼ Conv2D (128 → 256, s=2) + BN + LeakyReLU
-      [128 × 16 × 16]                                     [256 × 8 × 8]
+    ▼ ConvTranspose2D (256 -> 128) + BN + ReLU          ▼ Conv2D (128 -> 256, s=2) + BN + LeakyReLU
+      [128 x 16 x 16]                                     [256 x 8 x 8]
                 │                                                  │
-    ▼ ConvTranspose2D (128 → 64) + BN + ReLU            ▼ Conv2D (256 → 512, s=2) + BN + LeakyReLU
-      [64 × 32 × 32]                                      [512 × 4 × 4]
+    ▼ ConvTranspose2D (128 -> 64) + BN + ReLU           ▼ Conv2D (256 -> 512, s=2) + BN + LeakyReLU
+      [64 x 32 x 32]                                      [512 x 4 x 4]
                 │                                                  │
-    ▼ ConvTranspose2D (64 → 3) + Tanh                   ▼ Conv2D (512 → 1, s=1, pad=0) + Sigmoid
-      [3 × 64 × 64]                                       [1 × 1 × 1]
+    ▼ ConvTranspose2D (64 -> 3) + Tanh                  ▼ Conv2D (512 -> 1, s=1, pad=0) + Sigmoid
+      [3 x 64 x 64]                                       [1 x 1 x 1]
                 │                                                  │
                 └───────────────► Synthetic Face ──────────────────┘
                                          │
                                          ▼
-                             Real / Fake Probability ∈ [0, 1]
+                             Real / Fake Probability in [0, 1]
 ```
 
-**Adversarial Loss Formulations:**
-- **Discriminator Loss (with label smoothing):**
-  $$\mathcal{L}_D = -\mathbb{E}_{x \sim p_{\text{data}}} [\log D(x)] - \mathbb{E}_{z \sim p_z} [\log (1 - D(G(z)))]$$
-  *(Real target set to $0.9$, Fake target set to $0.0$)*
+**Adversarial Objectives:**
+- **Discriminator Loss:**
+  $$\mathcal{L}_D = -\mathbb{E}_{x} [\log D(x)] - \mathbb{E}_{z} [\log (1 - D(G(z)))]$$
+  *(With real label set to 0.9 for one-sided label smoothing)*
 - **Generator Loss (Non-saturating):**
-  $$\mathcal{L}_G = -\mathbb{E}_{z \sim p_z} [\log D(G(z))]$$
+  $$\mathcal{L}_G = -\mathbb{E}_{z} [\log D(G(z))]$$
 
 ---
 
-## 🔁 VAE Visuals: Reconstruction & Latent Interpolation
+## VAE Results: Reconstruction and Latent Space Walk
 
-### VAE Reconstruction Check
-Below is the evaluation on validation faces comparing the original image (top row) with the VAE reconstructed image (bottom row):
+### Reconstruction Fidelity
+Original input faces vs. VAE reconstructed faces:
 
 ![VAE Reconstruction Comparison](outputs/plots/eval_vae_reconstruction.png)
 
-*Figure 2: Top row = Original ground-truth faces; Bottom row = VAE reconstructions (MSE: 0.0188, PSNR: 17.49 dB).*
+*Figure 2: Top row = Original ground-truth images; Bottom row = VAE reconstructions (MSE: 0.0188, PSNR: 17.49 dB).*
 
-### VAE Latent Space Manifold Walk (Interpolation)
-Interpolating linearly $\alpha \in [0, 1]$ between two random latent vectors $z_1 \to z_2$ and decoding $G(z_\alpha)$ demonstrates the smooth, continuous nature of the learned latent manifold:
+### Latent Space Manifold Walk (Interpolation)
+Linear interpolation between two random points $z_1, z_2 \sim \mathcal{N}(0, \mathbf{I})$ demonstrates smooth topological continuity in the learned latent space:
 
 ![VAE Latent Interpolation](outputs/generated/vae_latent_interpolation.png)
 
-*Figure 3: 10-step linear latent space walk between two distinct facial identities.*
+*Figure 3: 10-step linear interpolation path in latent space between two face vectors.*
 
-### VAE Generated Samples (Prior Sampling)
-Sampling random vectors from the standard Gaussian prior $z \sim \mathcal{N}(0, \mathbf{I})$ produces diverse, complete synthetic face samples:
+### VAE Generated Samples
+Samples drawn directly from the Gaussian prior $z \sim \mathcal{N}(0, \mathbf{I})$:
 
 ![VAE Generated Grid](outputs/generated/eval_vae_generated.png)
 
@@ -165,116 +161,107 @@ Sampling random vectors from the standard Gaussian prior $z \sim \mathcal{N}(0, 
 
 ---
 
-## ⚡ DCGAN Visuals: Adversarial Generation
+## DCGAN Results: Adversarial Synthesis
 
-Generated samples synthesized by the DCGAN Generator from random noise:
+Samples produced by the DCGAN Generator from Gaussian noise vectors:
 
 ![GAN Generated Grid](outputs/generated/eval_gan_generated.png)
 
-*Figure 5: 64 synthetic faces generated by DCGAN showing crisp edges and defined boundaries.*
+*Figure 5: 64 synthetic faces generated by DCGAN displaying defined facial features.*
 
 ---
 
-## 📈 Training Dynamics & Loss Curves
+## Training Loss Dynamics
 
 ### VAE Training Losses
-The total loss converges monotonically without oscillations as the encoder and decoder learn jointly:
+The total ELBO loss decreases smoothly and stabilizes:
 
-| VAE Total Loss (Recon + KL) | VAE Component Losses (Recon vs KL) |
+| VAE Total Loss | VAE Component Losses (Recon vs KL) |
 |---|---|
 | ![VAE Total Loss](outputs/plots/vae_total_loss.png) | ![VAE Component Losses](outputs/plots/vae_component_losses.png) |
 
-### DCGAN Training Losses & Discriminator Behavior
-Adversarial competition is reflected in the dynamic interaction between Generator and Discriminator:
+### DCGAN Training Losses and Discriminator Scores
+Loss interaction and discriminator predictions during training:
 
-| DCGAN Generator & Discriminator Loss | Discriminator Real vs Fake Scores |
+| DCGAN Generator and Discriminator Loss | Discriminator Real vs Fake Scores |
 |---|---|
 | ![GAN Losses](outputs/plots/gan_losses.png) | ![GAN Discriminator Scores](outputs/plots/gan_discriminator_scores.png) |
 
 ---
 
-## 📊 Comprehensive Model Comparison Matrix
+## Model Comparison
 
-| Feature / Dimension | Variational Autoencoder (VAE) | Deep Convolutional GAN (DCGAN) |
+| Dimension | Variational Autoencoder (VAE) | Deep Convolutional GAN (DCGAN) |
 |---|---|---|
-| **Underlying Principle** | Probabilistic latent-variable model (approximates $p(x)$) | Game-theoretic adversarial game (implicit distribution) |
-| **Objective Function** | Maximizes Evidence Lower Bound (ELBO) | Minimax game minimizing Jensen-Shannon divergence |
-| **Image Sharpness** | **Smooth / Blurry** | **Sharp / Realistic high-frequency detail** |
-| **Image Diversity** | **High** (covers entire data distribution) | **Moderate** (can suffer from partial mode collapse) |
-| **Direct Reconstruction** | **Yes** ($\text{Encoder}(x) \to z \to \text{Decoder}(z)$) | **No** (has no encoder network) |
-| **Latent Structure** | **Continuous & Disentangled** ($\mathcal{N}(0, \mathbf{I})$) | **Unstructured** (noise acts merely as seed) |
-| **Latent Interpolation** | **Smooth, meaningful transitions** | Transitions can cross unrealistic regions |
-| **Training Stability** | **Very Stable** (standard convex optimization) | **Delicate** (requires careful learning rates and balancing) |
-| **Failure Modes** | Blurry textures, posterior collapse ($\beta$ too high) | Mode collapse, vanishing gradients, oscillations |
-| **Evaluation Metrics** | Reconstruction MSE, PSNR, SSIM, KL | Inception Score (IS), FID, Diversity Score |
+| **Principle** | Explicit density approximation (ELBO) | Implicit density game (adversarial minimax) |
+| **Loss** | Reconstruction MSE + KL Divergence | Binary Cross-Entropy (adversarial) |
+| **Output Quality** | Smooth, slightly blurry fine features | Crisp, well-defined high-frequency details |
+| **Diversity** | High (covers whole distribution support) | Moderate (susceptible to mode collapse) |
+| **Image Reconstruction** | Direct via Encoder-Decoder | None without extra inference networks |
+| **Latent Space** | Structured, Gaussian, interpolatable | Unstructured noise vector |
+| **Training Stability** | High (standard gradient descent) | Requires balancing generator and discriminator |
+| **Inference Time** | Fast single forward pass | Fast single forward pass |
 
 ---
 
-## 💡 Why VAE and GAN Produce Different Results
+## Analysis: Why VAE and GAN Yield Different Outputs
 
-1. **The Effect of Pixel-Wise $\ell_2$ Loss (VAE):**
-   - The VAE decoder is trained to minimize Mean Squared Error against the training image.
-   - When faced with uncertainty regarding fine facial textures (individual strands of hair, eye positions, micro-shadows), the mathematical solution that minimizes $\ell_2$ error is the **conditional expectation (mean)** across all plausible appearances.
-   - An average over sharp variations is naturally smooth and blurry.
-2. **The Effect of the Adversarial Perceptual Loss (GAN):**
-   - The DCGAN has no pixel-level loss. Instead, the Discriminator classifies whether an image looks like a genuine sample from the dataset.
-   - A blurry average face is immediately identified as synthetic by the discriminator and penalized with high loss.
-   - This pushes the Generator to commit to sharp, distinct boundaries and realistic textures to successfully fool the discriminator.
+1. **Mean Squared Error Optimization (VAE):**
+   The VAE decoder minimizes pixel-wise $\ell_2$ distance against training images. Mathematically, the expected value minimizing MSE under uncertainty is the **conditional mean** of the distribution. When multiple plausible textures exist for hair or skin, averaging them produces a smooth, blurry image.
+2. **Adversarial Perceptual Feedback (GAN):**
+   The GAN generator has no fixed pixel target. Instead, it must fool a discriminator that checks whether the image matches the distribution of real photographs. A blurry image is easily flagged as synthetic, forcing the generator to output sharp, high-frequency boundaries.
 
 ---
 
-## 💻 Interactive Streamlit Web Application
+## Streamlit Web Interface
 
-The repository includes a ready-to-run interactive web app built with Streamlit:
+An interactive interface is provided in `app.py`:
 
 ```bash
 streamlit run app.py
 ```
 
-### Features:
-- **🎨 Tab 1 — VAE Generation:** Generate custom grids of synthetic faces from the Gaussian prior.
-- **⚡ Tab 2 — GAN Generation:** Synthesize faces in real time from latent noise vectors.
-- **🔁 Tab 3 — VAE Reconstruction:** Compare ground truth validation images against VAE reconstructions.
-- **🔀 Tab 4 — Latent Interpolation:** Interactive slider to continuously navigate through the 128-dimensional latent space between two face vectors.
-- **📊 Tab 5 — Model Comparison:** Side-by-side comparative table, loss graphs, and quantitative metric readouts.
+Features included:
+- **VAE Generation**: Interactive face generation from latent space.
+- **DCGAN Generation**: Synthetic face generation from noise.
+- **VAE Reconstruction**: Ground truth vs. reconstructed face comparison.
+- **Latent Interpolation**: Slider to walk continuously through the 128-d latent space.
+- **Model Comparison**: Metric readouts and comparative plots.
 
 ---
 
-## 📁 Repository Structure
+## Project Directory Layout
 
 ```
 VAE-vs-GAN/
-├── config.py                 # Global configuration: device (MPS/CUDA/CPU), batch size, dims
-├── requirements.txt          # Python dependencies (PyTorch, torchvision, streamlit, etc.)
-├── run_all.py                # Automated end-to-end training & evaluation pipeline
-├── app.py                    # Multi-tab Streamlit web application
-├── README.md                 # Complete academic documentation and visual summary
-├── report.md                 # Full academic project report with derivations and viva Q&A
-├── .gitignore                # Excludes large binary weights (>100MB) for GitHub compliance
+├── config.py                 # Configuration and hyperparameters
+├── requirements.txt          # Dependencies
+├── run_all.py                # End-to-end execution script
+├── app.py                    # Streamlit interface
+├── README.md                 # Project documentation
+├── report.md                 # Academic report and viva questions
+├── .gitignore                # Excludes large weight files (>100MB)
 ├── data/
-│   └── generate_face_dataset.py # Generates 2,000 synthetic face samples in seconds
+│   └── generate_face_dataset.py # Face dataset generator
 ├── models/
-│   ├── __init__.py
-│   ├── vae.py                # VAE model: Encoder, Decoder, Reparameterization, ELBO loss
-│   └── gan.py                # DCGAN model: Generator, Discriminator, Adversarial loss
+│   ├── vae.py                # VAE architecture and loss
+│   └── gan.py                # DCGAN Generator and Discriminator
 ├── training/
-│   ├── __init__.py
-│   ├── train_vae.py          # Complete VAE training & validation loop
-│   └── train_gan.py          # Complete DCGAN alternating training loop
+│   ├── train_vae.py          # VAE training script
+│   └── train_gan.py          # DCGAN training script
 ├── evaluation/
-│   ├── __init__.py
-│   └── evaluate.py           # Metric calculation (MSE, PSNR, SSIM, FID) & grid saving
+│   └── evaluate.py           # Metric calculation and plotting
 └── outputs/
-    ├── generated/            # Generated image grids & latent interpolation walks
-    ├── reconstructions/      # Side-by-side original vs reconstruction plots
-    └── plots/                # Training loss curves, discriminator scores, and metrics.txt
+    ├── generated/            # Generated sample grids
+    ├── reconstructions/      # Reconstruction comparisons
+    └── plots/                # Loss curves and metrics.txt
 ```
 
 ---
 
-## 🚀 Quick Start & Reproduction Instructions
+## Running the Project
 
-### 1. Clone & Setup Environment
+### 1. Setup Environment
 ```bash
 git clone https://github.com/aditya29625/VAE-vs-GAN.git
 cd VAE-vs-GAN
@@ -283,78 +270,69 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Run the Full Automated Pipeline
+### 2. Run Training and Evaluation
 ```bash
-# This generates the face dataset, trains VAE & GAN, and computes all metrics:
 python run_all.py
 ```
 
-### 3. Launch the Web Interface
+### 3. Launch the Interface
 ```bash
 streamlit run app.py
 ```
-Open **`http://localhost:8501`** in your browser.
 
 ---
 
-## 🎓 Viva Voce Questions & Answers
+## Viva Voce Technical Discussion
 
 ### Q1: What is the reparameterization trick and why is it needed?
-> **Answer:** In a VAE, the encoder outputs distribution parameters $\mu$ and $\log \sigma^2$. Sampling $z \sim \mathcal{N}(\mu, \sigma^2)$ is stochastic and non-differentiable, preventing backpropagation. The reparameterization trick reformulates the sample as $z = \mu + \varepsilon \cdot \sigma$, where $\varepsilon \sim \mathcal{N}(0, \mathbf{I})$. This pushes the non-differentiable stochasticity into $\varepsilon$, making $z$ deterministic with respect to $\mu$ and $\sigma$, enabling standard gradient descent.
+> **Answer:** In a VAE, the encoder outputs distribution parameters $\mu$ and $\log \sigma^2$. Sampling $z \sim \mathcal{N}(\mu, \sigma^2)$ directly is a non-differentiable stochastic step that breaks backpropagation. The reparameterization trick expresses the sample as $z = \mu + \varepsilon \cdot \sigma$, where $\varepsilon \sim \mathcal{N}(0, \mathbf{I})$. This isolates the stochasticity in $\varepsilon$, making $z$ deterministic with respect to $\mu$ and $\sigma$ so gradients can flow normally.
 
-### Q2: Why does the VAE loss function require a KL-divergence term?
-> **Answer:** Without the KL divergence term, the encoder would map each training image to isolated, delta-like points in latent space ($\sigma \to 0$), leaving empty gaps. Sampling from random coordinates during generation would decode into meaningless artifacts. The KL divergence regularizes the posterior $q(z|x)$ toward a standard Gaussian $\mathcal{N}(0, \mathbf{I})$, ensuring the latent space is continuous and complete.
+### Q2: Why is the KL divergence term necessary in VAE?
+> **Answer:** Without the KL divergence penalty, the encoder could map training points to isolated coordinates with $\sigma \to 0$, leaving unmapped gaps in latent space. Sampling from those gaps at inference time would produce invalid outputs. The KL term enforces a smooth Gaussian prior $\mathcal{N}(0, \mathbf{I})$ across the entire latent space, ensuring any sampled vector decodes to a valid image.
 
 ### Q3: Why are VAE images blurrier than GAN images?
-> **Answer:** VAE minimizes an $\ell_2$ pixel reconstruction loss (MSE). When the model has uncertainty about fine spatial details, the value that mathematically minimizes MSE is the mean of all plausible completions. The average of many sharp variations is blurry. In contrast, the GAN's discriminator penalizes blurry images as synthetic, forcing the generator to commit to sharp features.
+> **Answer:** VAEs minimize an $\ell_2$ pixel reconstruction loss (MSE). When the network cannot be certain of the exact high-frequency detail, the mathematical minimum of MSE is the expected mean over all plausible details. The average of sharp variations is naturally blurred. GANs instead rely on a discriminator that rejects blurred images as fake, driving the generator to synthesize crisp details.
 
-### Q4: What is mode collapse in GANs and how is it detected?
-> **Answer:** Mode collapse occurs when the generator produces only a small subset of outputs (or a single image) that consistently deceives the discriminator, ignoring the diversity of the training set. It can be detected when the diversity score (pixel standard deviation across batches) drops near zero and different noise inputs $z$ yield identical images.
+### Q4: What is mode collapse in GANs and how can it be identified?
+> **Answer:** Mode collapse occurs when the generator produces only a limited variety of images that successfully fool the discriminator, ignoring the rest of the target distribution. It is detected when the diversity score (pixel variance across generated samples) drops significantly and different noise inputs produce nearly identical images.
 
-### Q5: What is the non-saturating generator loss in DCGAN?
-> **Answer:** The original minimax loss $\min_G \mathbb{E}[\log(1 - D(G(z)))]$ suffers from vanishing gradients early in training when $D$ easily detects fake images ($D(G(z)) \approx 0$). The non-saturating formulation maximizes $\log D(G(z))$ (implemented as $\min_G \text{BCE}(D(G(z)), 1)$), which provides large gradients when the generator is performing poorly.
+### Q5: What is the non-saturating generator loss?
+> **Answer:** The original minimax loss $\min_G \mathbb{E}[\log(1 - D(G(z)))]$ leads to vanishing gradients early in training when the discriminator easily detects fake images ($D(G(z)) \approx 0$). The non-saturating formulation maximizes $\log D(G(z))$, which provides large gradient signals early in training when the generator is performing poorly.
 
-### Q6: Why is one-sided label smoothing used for the discriminator?
-> **Answer:** Replacing hard target $1.0$ with $0.9$ for real images prevents the discriminator from becoming overconfident. Overconfident discriminators output extreme logits with near-zero gradients, starving the generator of learning signals.
+### Q6: Why use label smoothing for the discriminator?
+> **Answer:** Setting the target for real images to 0.9 rather than 1.0 prevents the discriminator from becoming overconfident. Overconfidence causes vanishing gradients for the generator and destabilizes the adversarial training dynamics.
 
-### Q7: Can a standard DCGAN reconstruct an arbitrary test image?
-> **Answer:** No. A standard GAN lacks an encoder ($E: \mathcal{X} \to \mathcal{Z}$) to invert images back to latent codes. Image reconstruction requires either iterative gradient optimization in the latent space or bidirectional architectures like BiGAN or ALI.
+### Q7: Can a DCGAN reconstruct an input image directly?
+> **Answer:** No. A standard GAN only has a Generator mapping latent codes to images ($G: \mathcal{Z} \to \mathcal{X}$). It lacks an encoder network to map images back to latent codes. Image reconstruction requires either iterative latent space optimization or architectures with bidirectional inference (such as BiGAN).
 
-### Q8: What is $\beta$-VAE and what does $\beta > 1$ accomplish?
-> **Answer:** $\beta$-VAE introduces a weighting factor $\beta$ on the KL divergence term: $\mathcal{L} = \mathcal{L}_{\text{recon}} + \beta \cdot D_{\text{KL}}$. Setting $\beta > 1$ imposes a stronger independence constraint on the latent dimensions, encouraging unsupervised disentanglement where individual axes align with human-interpretable factors (e.g., pose or expression).
+### Q8: What does $\beta$-VAE do?
+> **Answer:** $\beta$-VAE scales the KL divergence term by a hyperparameter $\beta > 1$: $\mathcal{L} = \mathcal{L}_{\text{recon}} + \beta \cdot D_{\text{KL}}$. This stronger regularization constraint encourages statistical independence among latent dimensions, leading to disentangled representations at the expense of slightly higher reconstruction error.
 
-### Q9: Why are strided convolutions used instead of pooling layers in DCGAN?
-> **Answer:** Deterministic pooling (like MaxPool) discards spatial coordinates permanently. Strided convolutions (in the discriminator) and fractional-strided/transposed convolutions (in the generator) allow the networks to learn their own adaptive spatial downsampling and upsampling filters.
+### Q9: Why are strided convolutions preferred over pooling in DCGAN?
+> **Answer:** Pooling operations like MaxPool discard spatial location information deterministically. Strided convolutions and transposed convolutions allow the network to learn optimal spatial downsampling and upsampling filters end-to-end.
 
-### Q10: How do we objectively evaluate generative image quality?
-> **Answer:** For reconstruction, we compute **MSE, PSNR, and SSIM**. For synthetic generation where no ground truth pair exists, we compute **FID (Fréchet Inception Distance)**, measuring Wasserstein-2 distance between real and synthetic feature distributions extracted from Inception-V3, alongside the **Inception Score (IS)** and **Diversity Score**.
-
----
-
-## 🎤 2-Minute Presentation Pitch
-
-*(Memorize and deliver directly to the evaluation panel)*
-
-> *"Good morning, respected examiners.*
->
-> *In this project, we implemented and evaluated two fundamental generative deep learning paradigms from scratch in native PyTorch: a **Variational Autoencoder (VAE)** and a **Deep Convolutional Generative Adversarial Network (DCGAN)** for synthetic human face generation at $64 \times 64$ resolution.*
->
-> *For the **VAE**, we engineered a 5-layer convolutional encoder that compresses images into a 128-dimensional latent space $(\mu, \log \sigma^2)$. To enable gradient backpropagation through random sampling, we implemented the **reparameterization trick**, formulating $z = \mu + \varepsilon \cdot \sigma$. The decoder reconstructs the face through 5 transposed convolutional layers. We trained it with the **Evidence Lower Bound (ELBO)**, balancing pixel-wise MSE with an analytical KL-divergence penalty that enforces a continuous, smooth Gaussian latent manifold.*
->
-> *For the **DCGAN**, we structured a zero-sum game between a convolutional Generator and Discriminator. The Generator projects 100-dimensional random Gaussian noise through transposed convolutions with batch normalization to output realistic faces. The Discriminator uses strided convolutions with LeakyReLU to determine authenticity. We stabilized training using **non-saturating generator loss** and **one-sided label smoothing**.*
->
-> *Our experimental results illustrate the fundamental trade-off of generative modeling:*
-> - *The **VAE** achieves stable training, guarantees full data coverage without mode collapse, and enables bidirectional reconstruction (achieving **0.0188 MSE** and **17.49 dB PSNR**) and smooth latent space walks.*
-> - *The **DCGAN** produces significantly crisper, more photorealistic facial boundaries because its discriminator functions as a learned perceptual judge, though it lacks direct image reconstruction capability.*
->
-> *Finally, we packaged the entire pipeline into an interactive **Streamlit application** featuring real-time face generation, reconstruction viewing, and latent manifold interpolation.*
->
-> *Thank you, and I welcome your questions."*
+### Q10: How are generative models quantitatively evaluated?
+> **Answer:** For reconstruction, **MSE, PSNR, and SSIM** are computed against ground truth. For unconditional synthesis, **Fréchet Inception Distance (FID)** measures the Wasserstein-2 distance between feature distributions of real and fake images, while **Inception Score (IS)** evaluates image clarity and class diversity.
 
 ---
 
-## 📜 Academic References
-1. Kingma, D. P., & Welling, M. (2013). *Auto-Encoding Variational Bayes*. arXiv:1312.6114.
-2. Radford, A., Metz, L., & Chintala, S. (2015). *Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks*. arXiv:1511.06434.
-3. Goodfellow, I., et al. (2014). *Generative Adversarial Networks*. NeurIPS.
-4. Higgins, I., et al. (2017). *$\beta$-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework*. ICLR.
+## Summary Presentation Script
+
+> *"Good morning. In this project, we implemented and evaluated two generative models from scratch in PyTorch: a Variational Autoencoder (VAE) and a Deep Convolutional GAN (DCGAN) for synthetic face synthesis at 64x64 resolution.*
+>
+> *For the VAE, we built a 5-layer convolutional encoder mapping into a 128-dimensional latent space $(\mu, \log \sigma^2)$. Using the reparameterization trick ($z = \mu + \varepsilon \cdot \sigma$), the sampling step remains differentiable. The decoder upsamples $z$ back to image space through 5 transposed convolutional layers. We trained it with the Evidence Lower Bound (ELBO), balancing pixel MSE with an analytical KL-divergence penalty that ensures a continuous Gaussian latent manifold.*
+>
+> *For the DCGAN, we implemented a zero-sum minimax game between a convolutional Generator and Discriminator. The Generator maps 100-dimensional noise into images, while the Discriminator classifies authenticity using strided convolutions. We stabilized training with non-saturating generator loss and one-sided label smoothing.*
+>
+> *Our results highlight the core trade-off between the two approaches: the VAE provides stable training, reliable coverage without mode collapse, and direct image reconstruction (achieving 0.0188 MSE and 17.49 dB PSNR) with smooth latent interpolation, but produces slightly blurred outputs due to $\ell_2$ averaging. The DCGAN produces significantly sharper facial features because its discriminator penalizes blur, though it lacks a direct reconstruction mechanism.*
+>
+> *We also created an interactive Streamlit application to demonstrate real-time face generation, reconstruction, and latent space traversal. Thank you."*
+
+---
+
+## References
+
+1. Kingma, D. P., & Welling, M. (2013). Auto-Encoding Variational Bayes. *arXiv:1312.6114*.
+2. Radford, A., Metz, L., & Chintala, S. (2015). Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks. *arXiv:1511.06434*.
+3. Goodfellow, I., et al. (2014). Generative Adversarial Networks. *NeurIPS*.
+4. Higgins, I., et al. (2017). $\beta$-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework. *ICLR*.

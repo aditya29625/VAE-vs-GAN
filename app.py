@@ -108,14 +108,14 @@ def show_grid(tensors, cols=8, caption=""):
 # App layout
 # ─────────────────────────────────────────────────────────────────────────────
 
-st.title("🧠 Generative Face Synthesis: VAE vs DCGAN")
+st.title("Generative Face Synthesis: VAE vs DCGAN")
 st.markdown("""
-A complete academic project demonstrating **Variational Autoencoder (VAE)**
+A deep learning project evaluating **Variational Autoencoder (VAE)**
 and **Deep Convolutional GAN (DCGAN)** for synthetic face generation.
 """)
 
 # Sidebar
-st.sidebar.header("⚙️ Controls")
+st.sidebar.header("Controls")
 n_generate = st.sidebar.slider("Images to generate", 4, 64, 16, step=4)
 seed_val   = st.sidebar.number_input("Random seed", value=42, step=1)
 
@@ -125,7 +125,7 @@ val_batch = load_val_batch()
 
 if vae_model is None and gan_model is None:
     st.warning("""
-    ⚠️ **No trained models found.**
+    **No trained models found.**
 
     Please train the models first:
     ```bash
@@ -138,11 +138,11 @@ if vae_model is None and gan_model is None:
 
 # ── Tabs ─────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🎨 VAE Generation",
-    "⚡ GAN Generation",
-    "🔁 VAE Reconstruction",
-    "🔀 Latent Interpolation",
-    "📊 Model Comparison",
+    "VAE Generation",
+    "DCGAN Generation",
+    "VAE Reconstruction",
+    "Latent Interpolation",
+    "Model Comparison",
 ])
 
 
@@ -164,7 +164,7 @@ with tab1:
     if vae_model is None:
         st.error("VAE checkpoint not found. Train the VAE first.")
     else:
-        if st.button("🎲 Generate VAE Faces", key="vae_gen"):
+        if st.button("Generate VAE Faces", key="vae_gen"):
             set_seed(int(seed_val))
             with torch.no_grad():
                 z     = torch.randn(n_generate, config.VAE_LATENT_DIM, device=DEVICE)
@@ -191,7 +191,7 @@ with tab2:
     if gan_model is None:
         st.error("GAN checkpoint not found. Train the GAN first.")
     else:
-        if st.button("🎲 Generate GAN Faces", key="gan_gen"):
+        if st.button("Generate DCGAN Faces", key="gan_gen"):
             set_seed(int(seed_val))
             with torch.no_grad():
                 z    = torch.randn(n_generate, config.GAN_NOISE_DIM, device=DEVICE)
@@ -219,7 +219,7 @@ with tab3:
     elif val_batch is None:
         st.error("Could not load validation data.")
     else:
-        if st.button("🔁 Show Reconstructions", key="vae_recon"):
+        if st.button("Show Reconstructions", key="vae_recon"):
             n = min(8, val_batch.size(0))
             with torch.no_grad():
                 recon, _, _ = vae_model(val_batch[:n])
@@ -249,7 +249,7 @@ with tab4:
         seed1 = st.number_input("Seed for z₁", value=1, step=1)
         seed2 = st.number_input("Seed for z₂", value=2, step=1)
 
-        if st.button("🔀 Interpolate", key="interp"):
+        if st.button("Interpolate", key="interp"):
             with torch.no_grad():
                 torch.manual_seed(int(seed1))
                 z1 = torch.randn(1, config.VAE_LATENT_DIM, device=DEVICE)
@@ -269,40 +269,40 @@ with tab4:
 # ─────────────────────────────────────────────────────────────────────────────
 
 with tab5:
-    st.header("📊 VAE vs DCGAN — Model Comparison")
+    st.header("VAE vs DCGAN — Model Comparison")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("🔵 VAE")
+        st.subheader("VAE")
         st.markdown("""
         | Property | Detail |
         |---|---|
         | **Principle** | Probabilistic encoder-decoder |
         | **Loss** | MSE + KL divergence |
         | **Output quality** | Smooth, slightly blurry |
-        | **Reconstruction** | ✅ Yes |
-        | **Latent structure** | ✅ Continuous, interpolatable |
-        | **Training** | ✅ Stable |
-        | **Mode collapse** | ❌ Does not suffer |
-        | **Diversity** | ✅ High |
-        | **Inference speed** | ✅ Fast |
+        | **Reconstruction** | Yes |
+        | **Latent structure** | Continuous, interpolatable |
+        | **Training** | Stable |
+        | **Mode collapse** | No |
+        | **Diversity** | High |
+        | **Inference speed** | Fast |
         """)
 
     with col2:
-        st.subheader("🔴 DCGAN")
+        st.subheader("DCGAN")
         st.markdown("""
         | Property | Detail |
         |---|---|
         | **Principle** | Adversarial generator-discriminator |
         | **Loss** | Adversarial (BCE) |
-        | **Output quality** | Sharp, photorealistic |
-        | **Reconstruction** | ❌ No |
-        | **Latent structure** | ⚠️ Less structured |
-        | **Training** | ⚠️ Unstable, needs tuning |
-        | **Mode collapse** | ⚠️ Can occur |
-        | **Diversity** | ⚠️ May collapse |
-        | **Inference speed** | ✅ Fast |
+        | **Output quality** | Sharp, realistic |
+        | **Reconstruction** | No |
+        | **Latent structure** | Unstructured |
+        | **Training** | Sensitive to hyperparameters |
+        | **Mode collapse** | Risk of partial collapse |
+        | **Diversity** | Moderate |
+        | **Inference speed** | Fast |
         """)
 
     st.markdown("---")
