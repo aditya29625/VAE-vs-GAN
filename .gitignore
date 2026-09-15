@@ -1,0 +1,22 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# PyTorch checkpoints (exceed GitHub 100MB limit)
+*.pt
+*.pth
+outputs/checkpoints/
+
+# Data directory
+data/cifar-10*
+data/celeba*
+
+# Cache & temporary files
+.mplconfig/
+.DS_Store
+.ipynb_checkpoints/

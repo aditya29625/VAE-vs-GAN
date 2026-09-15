@@ -1,0 +1,22 @@
+============================================================
+  EVALUATION RESULTS
+============================================================
+
+NOTE: Pixel FID* is computed in RAW pixel space (not Inception
+features). True FID requires ~10k images + InceptionV3 features.
+
+── VAE ──────────────────────
+  Recon MSE           : 0.018793
+  PSNR (dB)           : 17.487975
+  SSIM                : 0.546139
+  Diversity           : 0.041822
+  Pixel FID*          : 0.000000
+  KL Loss             : 0.013979
+
+── GAN ──────────────────────
+  Recon MSE           : N/A (GANs don't reconstruct)
+  PSNR (dB)           : N/A
+  SSIM                : N/A
+  Diversity           : 0.042742
+  Pixel FID*          : 0.997609
+  KL Loss             : N/A
